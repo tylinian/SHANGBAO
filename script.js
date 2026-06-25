@@ -72,10 +72,14 @@ const memberStatus = document.querySelector('#memberStatus');
 
 const getMembers = () => JSON.parse(localStorage.getItem('shangbaoMembers') || '[]');
 const saveMembers = members => localStorage.setItem('shangbaoMembers', JSON.stringify(members));
+const getPendingMembers = () => JSON.parse(localStorage.getItem('shangbaoPendingMembers') || '[]');
+const savePendingMembers = members => localStorage.setItem('shangbaoPendingMembers', JSON.stringify(members));
+const reviewEmail = 'tylin@nkust.edu.tw';
 const defaultMember = {
   name: '商堡會員',
   email: 'test@gmail.com',
   password: '07111111',
+  status: 'approved',
   purpose: '預設會員登入'
 };
 
@@ -88,7 +92,7 @@ function setMessage(element, text, type = 'success') {
 function updateMemberStatus(member) {
   if (!memberStatus) return;
   if (!member) {
-    memberStatus.innerHTML = '<span>尚未登入</span><small>送出申請後，即可用同一組 Email 與密碼登入。</small>';
+    memberStatus.innerHTML = '<span>尚未登入</span><small>申請會員經 email 審查核准後，才可使用 Email 與密碼登入。</small>';
     return;
   }
   memberStatus.innerHTML = `<span>${member.name}，歡迎回來</span><small>登入帳號：${member.email}<br>申請目的：${member.purpose || '未填寫'}</small><button class="member-logout" type="button">登出</button>`;
@@ -103,10 +107,42 @@ function updateMemberStatus(member) {
 function authenticateMember(email, password) {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const normalizedPassword = String(password || '');
-  const storedMember = getMembers().find(item => item.email === normalizedEmail && item.password === normalizedPassword);
+  const storedMember = getMembers().find(item => item.email === normalizedEmail && item.password === normalizedPassword && (item.status || 'approved') === 'approved');
   if (storedMember) return storedMember;
   if (normalizedEmail === defaultMember.email && normalizedPassword === defaultMember.password) return defaultMember;
   return null;
+}
+
+function buildReviewMail(member) {
+  const subject = `商堡家辦會員申請審查：${member.name}`;
+  const body = [
+    '您好，以下為商堡家辦會員申請資料，請協助審查：',
+    '',
+    `姓名：${member.name}`,
+    `Email：${member.email}`,
+    `電話：${member.phone || '未填寫'}`,
+    `申請目的：${member.purpose || '未填寫'}`,
+    `申請時間：${new Date(member.createdAt).toLocaleString('zh-TW')}`,
+    '',
+    '審查方式：請回到會員核准頁，確認資料後按「核准會員」。',
+    '會員核准頁：https://tylinian.github.io/SHANGBAO/member-approval.html'
+  ].join('\n');
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(reviewEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function buildApprovalNoticeMail(member) {
+  const subject = '商堡家辦會員申請已核准';
+  const body = [
+    `${member.name} 您好：`,
+    '',
+    '您的商堡家辦會員申請已核准。',
+    '請使用申請時填寫的 Email 與密碼登入會員專區。',
+    '',
+    '登入網址：https://tylinian.github.io/SHANGBAO/',
+    '',
+    '商堡家辦'
+  ].join('\n');
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(member.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function unlockSite(member) {
@@ -154,24 +190,30 @@ if (applyForm) {
     const data = Object.fromEntries(new FormData(applyForm).entries());
     const email = String(data.email || '').trim().toLowerCase();
     const members = getMembers();
+    const pendingMembers = getPendingMembers();
     if (members.some(member => member.email === email)) {
-      setMessage(applyMessage, '此 Email 已申請過會員，請直接登入。', 'error');
+      setMessage(applyMessage, '此 Email 已核准為會員，請直接登入。', 'error');
+      return;
+    }
+    if (pendingMembers.some(member => member.email === email)) {
+      setMessage(applyMessage, '此 Email 已在審核中，請等待 email 審查結果。', 'error');
       return;
     }
     const member = {
+      id: `SB-${Date.now()}`,
       name: String(data.name || '').trim(),
       email,
       phone: String(data.phone || '').trim(),
       password: String(data.password || ''),
       purpose: String(data.purpose || '').trim(),
+      status: 'pending',
       createdAt: new Date().toISOString()
     };
-    members.push(member);
-    saveMembers(members);
-    localStorage.setItem('shangbaoCurrentMember', JSON.stringify(member));
+    pendingMembers.push(member);
+    savePendingMembers(pendingMembers);
     applyForm.reset();
-    setMessage(applyMessage, '會員申請已建立，並已為您登入。');
-    updateMemberStatus(member);
+    setMessage(applyMessage, '會員申請已建立，資料已存放在本機待審核，並已開啟 email 審查信。');
+    window.open(buildReviewMail(member), '_blank', 'noopener,noreferrer');
   });
 }
 
@@ -183,7 +225,7 @@ if (loginForm) {
     const password = String(data.password || '');
     const member = authenticateMember(email, password);
     if (!member) {
-      setMessage(loginMessage, '登入失敗，請確認 Email 與密碼，或先送出會員申請。', 'error');
+      setMessage(loginMessage, '登入失敗，請確認 Email 與密碼，或等待會員申請核准。', 'error');
       return;
     }
     localStorage.setItem('shangbaoCurrentMember', JSON.stringify(member));
@@ -201,4 +243,86 @@ if (document.body.classList.contains('member-only-page') && !currentMember) {
 }
 if (currentMember && siteLoginForm) {
   unlockSite(currentMember);
+}
+
+const approvalList = document.querySelector('#approvalList');
+const approvalEmpty = document.querySelector('#approvalEmpty');
+const approvalExport = document.querySelector('#approvalExport');
+const approvalClear = document.querySelector('#approvalClear');
+
+function renderApprovalList() {
+  if (!approvalList) return;
+  const pendingMembers = getPendingMembers();
+  approvalList.innerHTML = '';
+  if (approvalEmpty) approvalEmpty.hidden = pendingMembers.length > 0;
+  pendingMembers.forEach(member => {
+    const card = document.createElement('article');
+    card.className = 'approval-card';
+    card.innerHTML = `
+      <div>
+        <span class="panel-kicker">${member.id || 'PENDING'}</span>
+        <h3>${member.name}</h3>
+        <p>Email：${member.email}</p>
+        <p>電話：${member.phone || '未填寫'}</p>
+        <p>申請目的：${member.purpose || '未填寫'}</p>
+        <small>申請時間：${new Date(member.createdAt).toLocaleString('zh-TW')}</small>
+      </div>
+      <div class="approval-actions">
+        <button class="btn btn-gold" type="button" data-approve="${member.id}">核准會員</button>
+        <button class="btn btn-outline" type="button" data-reject="${member.id}">退回申請</button>
+        <a class="text-link" href="${buildReviewMail(member)}" target="_blank" rel="noopener noreferrer">寄出審查 Email</a>
+      </div>
+    `;
+    approvalList.appendChild(card);
+  });
+}
+
+if (approvalList) {
+  approvalList.addEventListener('click', event => {
+    const approveId = event.target.closest('[data-approve]')?.dataset.approve;
+    const rejectId = event.target.closest('[data-reject]')?.dataset.reject;
+    if (!approveId && !rejectId) return;
+    const pendingMembers = getPendingMembers();
+    const selected = pendingMembers.find(member => member.id === (approveId || rejectId));
+    if (!selected) return;
+    savePendingMembers(pendingMembers.filter(member => member.id !== selected.id));
+    if (approveId) {
+      const members = getMembers().filter(member => member.email !== selected.email);
+      const approvedMember = {
+        ...selected,
+        status: 'approved',
+        approvedAt: new Date().toISOString(),
+        reviewerEmail: reviewEmail
+      };
+      members.push(approvedMember);
+      saveMembers(members);
+      window.open(buildApprovalNoticeMail(approvedMember), '_blank', 'noopener,noreferrer');
+    }
+    renderApprovalList();
+  });
+  renderApprovalList();
+}
+
+if (approvalExport) {
+  approvalExport.addEventListener('click', () => {
+    const data = {
+      approvedMembers: getMembers(),
+      pendingMembers: getPendingMembers(),
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `shangbao-members-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+}
+
+if (approvalClear) {
+  approvalClear.addEventListener('click', () => {
+    if (!confirm('確定要清除本機所有待審核申請資料？')) return;
+    savePendingMembers([]);
+    renderApprovalList();
+  });
 }
