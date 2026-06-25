@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260625-6">
+  <link rel="stylesheet" href="styles.css?v=20260625-7">
 </head>
 <body class="article-page approval-page">
   <header class="article-header">
@@ -39,12 +39,20 @@
 
       <div class="approval-toolbar reveal">
         <a class="btn btn-gold" href="member-apply.html">前往申請會員 <span>↗</span></a>
-        <button class="btn btn-outline" type="button" id="approvalExport">匯出本機會員資料</button>
+        <button class="btn btn-outline" type="button" id="approvalExport">下載已核准會員 CSV</button>
         <button class="btn btn-outline" type="button" id="approvalClear">清除待審核資料</button>
       </div>
 
       <p class="approval-empty reveal" id="approvalEmpty">目前沒有待審核的會員申請。</p>
       <div class="approval-list reveal" id="approvalList" aria-live="polite"></div>
+
+      <div class="approved-members-head reveal">
+        <p class="eyebrow">APPROVED MEMBERS</p>
+        <h2>已核准會員</h2>
+        <p>以下名單為目前本機瀏覽器內可登入會員資料。</p>
+      </div>
+      <p class="approval-empty reveal" id="approvedEmpty">目前沒有已核准會員。</p>
+      <div class="approval-list approved-list reveal" id="approvedList" aria-live="polite"></div>
     </section>
   </main>
 
@@ -54,6 +62,6 @@
     <div><strong>聯絡我們</strong><a href="mailto:test@gmail.com">test@gmail.com</a><a href="tel:+07111111">+07111111</a><span>高雄市測試路1號</span></div>
     <div class="footer-bottom"><span>© 2026 商堡家辦</span><span class="visit-counter">瀏覽人數 <strong id="visitCount">000001</strong></span><span>會員資料儲存於本機瀏覽器</span></div>
   </footer>
-  <script src="script.js?v=20260625-6"></script>
+  <script src="script.js?v=20260625-7"></script>
 </body>
 </html>
