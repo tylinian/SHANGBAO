@@ -6,6 +6,7 @@ const dropdown = document.querySelector('.nav-dropdown');
 const siteLoginForm = document.querySelector('#siteLoginForm');
 const siteLoginMessage = document.querySelector('#siteLoginMessage');
 const loginGate = document.querySelector('#loginGate');
+const logoutLinks = document.querySelectorAll('[data-logout]');
 
 if (header) {
   window.addEventListener('scroll', () => header.classList.toggle('scrolled', window.scrollY > 140), { passive: true });
@@ -137,8 +138,15 @@ if (siteLoginForm) {
     siteLoginForm.reset();
     setMessage(siteLoginMessage, '登入成功。');
     unlockSite(member);
+    window.location.href = 'member-dashboard.html';
   });
 }
+
+logoutLinks.forEach(link => link.addEventListener('click', event => {
+  event.preventDefault();
+  localStorage.removeItem('shangbaoCurrentMember');
+  window.location.href = 'index.html';
+}));
 
 if (applyForm) {
   applyForm.addEventListener('submit', event => {
@@ -188,6 +196,9 @@ if (loginForm) {
 updateMemberStatus(JSON.parse(localStorage.getItem('shangbaoCurrentMember') || 'null'));
 
 const currentMember = JSON.parse(localStorage.getItem('shangbaoCurrentMember') || 'null');
+if (document.body.classList.contains('member-only-page') && !currentMember) {
+  window.location.href = 'index.html';
+}
 if (currentMember && siteLoginForm) {
   unlockSite(currentMember);
 }
