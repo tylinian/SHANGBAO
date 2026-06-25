@@ -250,6 +250,7 @@ const approvalEmpty = document.querySelector('#approvalEmpty');
 const approvedList = document.querySelector('#approvedList');
 const approvedEmpty = document.querySelector('#approvedEmpty');
 const approvalExport = document.querySelector('#approvalExport');
+const approvalSaveLocal = document.querySelector('#approvalSaveLocal');
 const approvalClear = document.querySelector('#approvalClear');
 
 function csvCell(value) {
@@ -377,6 +378,30 @@ if (approvedList) {
 if (approvalExport) {
   approvalExport.addEventListener('click', () => {
     downloadTextFile(`shangbao-approved-members-${new Date().toISOString().slice(0, 10)}.csv`, membersToCsv(getMembers()));
+  });
+}
+
+if (approvalSaveLocal) {
+  approvalSaveLocal.addEventListener('click', async () => {
+    const filename = `shangbao-approved-members-${new Date().toISOString().slice(0, 10)}.csv`;
+    const csv = membersToCsv(getMembers());
+    if (!window.showDirectoryPicker) {
+      alert('此瀏覽器不支援直接寫入本機資料夾，將改用下載 CSV。請下載後放入 C:\\AI 開發\\網頁設計\\會員資料。');
+      downloadTextFile(filename, csv);
+      return;
+    }
+    try {
+      const directoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(csv);
+      await writable.close();
+      alert(`已儲存 ${filename}。請確認檔案位於 C:\\AI 開發\\網頁設計\\會員資料。`);
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      alert('儲存失敗，將改用下載 CSV。請下載後放入 C:\\AI 開發\\網頁設計\\會員資料。');
+      downloadTextFile(filename, csv);
+    }
   });
 }
 
